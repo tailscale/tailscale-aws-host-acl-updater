@@ -51,11 +51,19 @@ an inline policy of:
 ```
 
 ### Step 3: Configuration
+In the AWS Secrets Manager create a secret containing a Key/Value pair:
+- Key: `API_KEY`
+- Value: the `tskey-...` of a [Tailscale API key](https://tailscale.com/kb/1101/api/).
+
+In the Replicate Secret section you can replicate the same secret across all regions
+where you intend to run this Lambda function. All of them can use the same API Key.
+
+We suggest naming the secret `ts-acl-hostname-updater`, but you may choose
+whatever naming convention you prefer by setting the `SECRET_NAME` environment variable.
+
 Populate Environment variables:
 - `TAILSCALE_TAILNET`: the name of the tailnet, such as `example.com` or `octocat.github`
-- `TAILSCALE_API_KEY`: a key for use with the [Tailscale API](https://tailscale.com/kb/1101/api/)
-
-TODO: `TAILSCALE_API_KEY` should be in the AWS Secrets Manager, not an environment variable.
+- `SECRET_NAME` to the name of the secret created above
 
 ### Step 4: EventBridge
 Create an EventBridge event with pattern:

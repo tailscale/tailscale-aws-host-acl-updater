@@ -137,7 +137,11 @@ func main() {
 		log.Fatalf("unable to load SDK config, %v", err)
 	}
 
-	tsApiKey = os.Getenv("TAILSCALE_API_KEY")
+	tsApiKey, err = getApiKey()
+	if err != nil {
+		log.Fatalf("getApiKey failed: %v", err)
+	}
+
 	tailnet = os.Getenv("TAILSCALE_TAILNET")
 	tsControlServer = os.Getenv("TAILSCALE_CONTROL_SERVER")
 	if tsControlServer == "" {
