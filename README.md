@@ -23,6 +23,10 @@ function to update the IP address if the AWS instance is replaced.
 Create a Lambda function in the AWS Console in the AWS region where
 the EC2/RDS/etc resources used with Tailscale are located.
 
+CloudWatch events can only be sent to a Lambda function in the same
+region. A Lambda will be needed in each region where there are
+resources to be tracked.
+
 
 ### Step 2: Permissions
 In Lambda > Configuration > Permissions, the ARN of the role created for the
@@ -51,6 +55,10 @@ an inline policy of:
 ```
 
 ### Step 3: Configuration
+In Lambda > Configuration > Environment variables, create the following variable:
+- `TAILSCALE_TAILNET`: the name of the tailnet, such as `example.com` or `octocat.github`
+
+
 In the AWS Secrets Manager create a secret containing a Key/Value pair:
 - Key: `API_KEY`
 - Value: the `tskey-...` of a [Tailscale API key](https://tailscale.com/kb/1101/api/).
@@ -61,9 +69,24 @@ where you intend to run this Lambda function. All of them can use the same API K
 We suggest naming the secret `ts-acl-hostname-updater`, but you may choose
 whatever naming convention you prefer by setting the `SECRET_NAME` environment variable.
 
-Populate Environment variables:
-- `TAILSCALE_TAILNET`: the name of the tailnet, such as `example.com` or `octocat.github`
-- `SECRET_NAME` to the name of the secret created above
+In the role created for the Lambda function (in Lambda > Configuration > Permissions) add
+another inline policy to access the secret:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "secretsmanager:GetSecretValue"
+            ],
+            "Resource": [
+                "ARN_OF_SECRET"
+            ]
+        }
+    ]
+}
+```
 
 ### Step 4: EventBridge
 Create an EventBridge event with pattern:
@@ -85,6 +108,8 @@ Create a second EventBridge rule with the pattern:
   "detail-type": ["RDS DB Instance Event"]
 }
 ```
+This will run the Lambda function whenever the RDS instance reboots or otherwise
+changes its running state.
 
 Create a third EventBridge rule with the pattern:
 ```
@@ -97,15 +122,19 @@ Create a third EventBridge rule with the pattern:
   }
 }
 ```
+This will run the Lambda function whenever a new Load Balancer instance is created.
+Unfortunately AWS does not generate CloudWatch events for other Load Balancer state
+changes, we cannot automatically run the Lambda.
+
 
 ### Step 5: Add `ts-hostname` AWS Tags
 For any AWS resource for which you wish this Lambda function to keep the IP
 address up to date, two things need to be done:
+1. Add an AWS Tag with key `ts-hostname` and value of the hostname which it is to maintain.
+   This is an _AWS_ Tag, not a Tag in the Tailscale ACL file.
 1. Add an initial entry for the hostname in the [Tailscale ACLs Hosts section](https://login.tailscale.com/admin/acls).
-   This Lambda function will update a `Hosts` entry which is already present, but not
-   add a new one.
-1. Add an AWS Tag with key `ts-hostname` and value of the hostname in the Tailscale ACL
-   file which it is to maintain.
+   This Lambda function will update a `Hosts` entry which is already present. It will not
+   add a new Hosts entry. This initial entry can be any valid IP address like `1.2.3.4`
 
 ## Bugs
 

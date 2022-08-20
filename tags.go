@@ -146,8 +146,8 @@ func getElbVpcAddress(ctx context.Context, arn string) (hostname, ip string) {
 	return
 }
 
-func tagsHandler(ctx context.Context, event *events.CloudWatchEvent) {
-	hosts := make(map[string]string)
+func tagsHandler(ctx context.Context, event *events.CloudWatchEvent) (hosts map[string]string) {
+	hosts = make(map[string]string)
 	for _, resource := range event.Resources {
 		a, err := arn.Parse(resource)
 		if err != nil {
@@ -166,15 +166,11 @@ func tagsHandler(ctx context.Context, event *events.CloudWatchEvent) {
 				hosts[hostname] = ip
 			}
 		case "elasticloadbalancing":
-			log.Printf("tagsHandler elasticloadbalancing!")
 			hostname, ip := getElbVpcAddress(ctx, resource)
 			if hostname != "" && ip != "" {
 				hosts[hostname] = ip
 			}
 		}
 	}
-
-	if len(hosts) > 0 {
-		updateHosts(ctx, hosts)
-	}
+	return
 }
