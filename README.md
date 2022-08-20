@@ -4,9 +4,9 @@ https://tailscale.com
 
 ## Overview
 
-This repository contains an AWS Lambda function intended to:
-- receive notifications of changes in AWS tags across a
-  number of AWS services
+This repository contains a set of AWS Lambda functions intended to:
+- receive notifications of changes in AWS tags across a number of
+  AWS services
 - check for an AWS tag named "ts-hostname"
 - automatically populate the `Hosts` section of a Tailscale ACL
   Policy file to update the IP address of that hostname
@@ -51,7 +51,7 @@ an inline policy of:
 ```
 
 ### Step 3: Configuration
-Populate an Environment variables:
+Populate Environment variables:
 - `TAILSCALE_TAILNET`: the name of the tailnet, such as `example.com` or `octocat.github`
 - `TAILSCALE_API_KEY`: a key for use with the [Tailscale API](https://tailscale.com/kb/1101/api/)
 
@@ -64,12 +64,31 @@ Create an EventBridge event with pattern:
   "source": ["aws.tag"],
   "detail-type": ["Tag Change on Resource"],
   "detail": {
-    "service": ["ec2", "rds"]
+    "service": ["ec2", "rds", "elasticloadbalancing"]
   }
 }
 ```
-
 This will run the Lambda function whenever tags are changed on an EC2 or RDS instance.
+
+Create a second EventBridge rule with the pattern:
+```
+{
+  "source": ["aws.rds"],
+  "detail-type": ["RDS DB Instance Event"]
+}
+```
+
+Create a third EventBridge rule with the pattern:
+```
+{
+  "source": ["aws.elasticloadbalancing"],
+  "detail-type": ["AWS API Call via CloudTrail"],
+  "detail": {
+    "eventSource": ["elasticloadbalancing.amazonaws.com"],
+    "eventName": ["CreateLoadBalancer"]
+  }
+}
+```
 
 ### Step 5: Add `ts-hostname` AWS Tags
 For any AWS resource for which you wish this Lambda function to keep the IP
